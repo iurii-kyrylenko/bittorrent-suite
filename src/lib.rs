@@ -49,7 +49,28 @@ impl BInteger {
 
 impl BString {
     fn parse(c: char, chars: &mut Chars) -> Result<String, BError> {
-        Ok("qwerty".to_string())
+        let len = BString::get_length(c, chars)?;
+
+        let s: String = chars.take(len).collect();
+
+        if s.len() == len {
+            Ok(s)
+        } else {
+            Err(BError)
+        }
+    }
+
+    fn get_length(c: char, chars: &mut Chars) -> Result<usize, BError> {
+        let mut digits = c.to_string();
+
+        for c in chars {
+            match c {
+                ':' => return digits.parse().or_else(|_| Err(BError)),
+                _ => digits.push(c),
+            };
+        }
+
+        Err(BError)
     }
 }
 
