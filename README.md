@@ -2,7 +2,14 @@
 
 https://en.wikipedia.org/wiki/Bencode
 
+### TODO:
+
+According to the [BEP-3](http://bittorrent.org/beps/bep_0003.html) specification, "_All strings in a .torrent file that contains text must be UTF-8 encoded._" E.g. that includes the `name` keys in the `info` dictionary and the strings in the `path` list. On the othe hand the data in the `pieces` (sequence of SHA1 hashes) is a string which is not UTF-8 encoded.
+
+The current implementation assumes that encoded data is a UTF-8 encoded string. It's not quite correct. Perhaps we should **handle BStrings as byte arrays**. It seems that conversion of BStrings to UTF-8 string should be performed outside of Bencode transformation.
+
 ### Specification
+
 ```
 <BE>    ::= <DICT> | <LIST> | <INT> | <STR>
 
@@ -18,6 +25,7 @@ https://en.wikipedia.org/wiki/Bencode
 ```
 
 ### Usage
+
 ```rust
 fn main() {
     let res = bencode_parse(
@@ -30,6 +38,7 @@ fn main() {
 ```
 
 ### Output
+
 ```
 Ok(
     BList(
