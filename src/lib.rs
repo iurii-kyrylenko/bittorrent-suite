@@ -10,7 +10,8 @@
 /// <CHAR>  ::= %
 /// <DIGIT> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 use std::collections::BTreeMap;
-use std::str::Chars;
+
+type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
 
 pub struct BInteger(i64);
 
@@ -26,7 +27,6 @@ pub enum BEncode {
     BString(String),
     BList(Vec<BEncode>),
     BDictionary(BTreeMap<String, BEncode>),
-    BEnd,
 }
 
 #[derive(Debug)]
@@ -79,10 +79,12 @@ impl BList {
         let mut vec = Vec::new();
 
         loop {
-            match BEncode::parse(chars)? {
-                BEncode::BEnd => return Ok(vec),
-                be => vec.push(be),
-            };
+            if let Some('e') = chars.peek() {
+                chars.next();
+                return Ok(vec);
+            }
+
+            vec.push(BEncode::parse(chars)?);
         }
     }
 }
@@ -115,12 +117,11 @@ impl BEncode {
             Some('i') => Ok(BEncode::BInteger(BInteger::parse(chars)?)),
             Some('l') => Ok(BEncode::BList(BList::parse(chars)?)),
             Some('d') => Ok(BEncode::BDictionary(BDictionary::parse(chars)?)),
-            Some('e') => Ok(BEncode::BEnd),
             _ => Err(BError),
         }
     }
 }
 
 pub fn bencode_parse(encoded: &str) -> Result<BEncode, BError> {
-    BEncode::parse(&mut encoded.chars())
+    BEncode::parse(&mut encoded.chars().peekable())
 }

@@ -1,5 +1,5 @@
 use bencode::bencode_parse;
-use std::{env, fs, str};
+use std::{env, fs};
 
 fn main() {
     test_inline();
