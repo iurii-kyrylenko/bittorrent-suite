@@ -5,3 +5,4 @@ authors = ["iurii_kyrylenko"]
 edition = "2018"
 
 [dependencies]
+nom = "5.1.2"

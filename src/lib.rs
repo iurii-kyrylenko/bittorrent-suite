@@ -9,119 +9,26 @@
 /// <NUM>   ::= 1 * <DIGIT>
 /// <CHAR>  ::= %
 /// <DIGIT> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-use std::collections::BTreeMap;
+use std::str::FromStr;
 
-type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+use nom::{
+    bytes::complete::is_not,
+    character::complete::char,
+    combinator::{map_res, opt, recognize},
+    sequence::{delimited, tuple},
+    IResult,
+};
 
-pub struct BInteger(i64);
-
-pub struct BString(String);
-
-pub struct BList(Vec<BEncode>);
-
-pub struct BDictionary(BTreeMap<String, BEncode>);
-
-#[derive(Debug)]
-pub enum BEncode {
-    BInteger(i64),
-    BString(String),
-    BList(Vec<BEncode>),
-    BDictionary(BTreeMap<String, BEncode>),
-}
-
-#[derive(Debug)]
-pub struct BError;
-
-impl BInteger {
-    fn parse(chars: &mut Chars) -> Result<i64, BError> {
-        let mut digits = String::new();
-
-        for c in chars {
-            match c {
-                'e' => return digits.parse().or_else(|_| Err(BError)),
-                _ => digits.push(c),
-            };
-        }
-
-        Err(BError)
-    }
-}
-
-impl BString {
-    fn parse(c: char, chars: &mut Chars) -> Result<String, BError> {
-        let len = BString::get_length(c, chars)?;
-
-        let s: String = chars.take(len).collect();
-
-        if s.len() == len {
-            Ok(s)
-        } else {
-            Err(BError)
-        }
-    }
-
-    fn get_length(c: char, chars: &mut Chars) -> Result<usize, BError> {
-        let mut digits = c.to_string();
-
-        for c in chars {
-            match c {
-                ':' => return digits.parse().or_else(|_| Err(BError)),
-                _ => digits.push(c),
-            };
-        }
-
-        Err(BError)
-    }
-}
-
-impl BList {
-    fn parse(chars: &mut Chars) -> Result<Vec<BEncode>, BError> {
-        let mut vec = Vec::new();
-
-        loop {
-            if let Some('e') = chars.peek() {
-                chars.next();
-                return Ok(vec);
-            }
-
-            vec.push(BEncode::parse(chars)?);
-        }
-    }
-}
-
-impl BDictionary {
-    fn parse(chars: &mut Chars) -> Result<BTreeMap<String, BEncode>, BError> {
-        let mut map = BTreeMap::new();
-
-        loop {
-            match BDictionary::get_key(chars)? {
-                None => return Ok(map),
-                Some(key) => map.insert(key, BEncode::parse(chars)?),
-            };
-        }
-    }
-
-    fn get_key(chars: &mut Chars) -> Result<Option<String>, BError> {
-        match chars.next() {
-            Some(c) if c >= '1' && c <= '9' => Ok(Some(BString::parse(c, chars)?)),
-            Some('e') => Ok(None),
-            _ => Err(BError),
-        }
-    }
-}
-
-impl BEncode {
-    fn parse(chars: &mut Chars) -> Result<Self, BError> {
-        match chars.next() {
-            Some(c) if c >= '1' && c <= '9' => Ok(BEncode::BString(BString::parse(c, chars)?)),
-            Some('i') => Ok(BEncode::BInteger(BInteger::parse(chars)?)),
-            Some('l') => Ok(BEncode::BList(BList::parse(chars)?)),
-            Some('d') => Ok(BEncode::BDictionary(BDictionary::parse(chars)?)),
-            _ => Err(BError),
-        }
-    }
-}
-
-pub fn bencode_parse(encoded: &str) -> Result<BEncode, BError> {
-    BEncode::parse(&mut encoded.chars().peekable())
+pub fn parse_int(input: &[u8]) -> IResult<&[u8], i64> {
+    map_res(
+        delimited(
+            char('i'),
+            recognize(tuple((opt(char('-')), is_not("e")))),
+            char('e'),
+        ),
+        |bytes| {
+            let s = &String::from_utf8_lossy(bytes);
+            FromStr::from_str(s)
+        },
+    )(input)
 }
