@@ -20,15 +20,16 @@ use nom::{
 };
 
 pub fn parse_int(input: &[u8]) -> IResult<&[u8], i64> {
-    map_res(
-        delimited(
-            char('i'),
-            recognize(tuple((opt(char('-')), is_not("e")))),
-            char('e'),
-        ),
-        |bytes| {
-            let s = &String::from_utf8_lossy(bytes);
-            FromStr::from_str(s)
-        },
-    )(input)
+    let parse_bytes = delimited(
+        char('i'),
+        recognize(tuple((opt(char('-')), is_not("e")))),
+        char('e'),
+    );
+
+    let to_int = |bytes| {
+        let s = String::from_utf8_lossy(bytes);
+        FromStr::from_str(&s)
+    };
+
+    map_res(parse_bytes, to_int)(input)
 }
