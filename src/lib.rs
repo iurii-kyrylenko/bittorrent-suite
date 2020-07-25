@@ -13,23 +13,30 @@ use std::str::FromStr;
 
 use nom::{
     bytes::complete::is_not,
-    character::complete::char,
+    character::complete::{char, digit1},
     combinator::{map_res, opt, recognize},
-    sequence::{delimited, tuple},
+    multi::length_data,
+    sequence::{delimited, terminated, tuple},
     IResult,
 };
 
 pub fn parse_int(input: &[u8]) -> IResult<&[u8], i64> {
-    let parse_bytes = delimited(
+    let digits = delimited(
         char('i'),
         recognize(tuple((opt(char('-')), is_not("e")))),
         char('e'),
     );
 
-    let to_int = |bytes| {
-        let s = String::from_utf8_lossy(bytes);
-        FromStr::from_str(&s)
-    };
+    map_res(digits, to_int)(input)
+}
 
-    map_res(parse_bytes, to_int)(input)
+pub fn parse_str(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    let digits = terminated(digit1, char(':'));
+
+    length_data(map_res(digits, to_int::<usize>))(input)
+}
+
+fn to_int<T: FromStr>(bytes: &[u8]) -> Result<T, <T as FromStr>::Err> {
+    let s = String::from_utf8_lossy(bytes);
+    FromStr::from_str(&s)
 }
