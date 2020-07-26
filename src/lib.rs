@@ -9,6 +9,7 @@
 /// <NUM>   ::= 1 * <DIGIT>
 /// <CHAR>  ::= %
 /// <DIGIT> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+use std::str;
 use std::{collections::BTreeMap, str::FromStr};
 
 use nom::{
@@ -26,8 +27,7 @@ pub enum BE<'a> {
     BInt(i64),
     BStr(&'a [u8]),
     BLst(Vec<BE<'a>>),
-    // BDict(BTreeMap<&'a [u8], BE<'a>>)
-    BDict(BTreeMap<String, BE<'a>>),
+    BDict(BTreeMap<&'a str, BE<'a>>),
 }
 
 pub fn parse_be(input: &[u8]) -> IResult<&[u8], BE> {
@@ -38,13 +38,7 @@ fn parse_dict(input: &[u8]) -> IResult<&[u8], BE> {
     let vec = delimited(char('d'), many1(pair(parse_key, parse_be)), char('e'));
 
     map_res(vec, |xs| {
-        let dictionary = xs
-            .into_iter()
-            // Comment out next line for the variant above:
-            // `BDict(BTreeMap<&'a [u8], BE<'a>>)`
-            .map(|(key, value)| (String::from_utf8_lossy(key).to_string(), value))
-            .collect();
-
+        let dictionary = xs.into_iter().collect();
         <Result<BE, ()>>::Ok(BE::BDict(dictionary))
     })(input)
 }
@@ -68,20 +62,23 @@ fn parse_int(input: &[u8]) -> IResult<&[u8], BE> {
 }
 
 fn parse_str(input: &[u8]) -> IResult<&[u8], BE> {
-    let digits = terminated(digit1, char(':'));
-
-    map_res(length_data(map_res(digits, to_int::<usize>)), |bytes| {
+    map_res(length_colon_data, |bytes| {
         <Result<BE, ()>>::Ok(BE::BStr(bytes))
     })(input)
 }
 
-fn parse_key(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    let digits = terminated(digit1, char(':'));
+fn parse_key(input: &[u8]) -> IResult<&[u8], &str> {
+    map_res(length_colon_data, |bytes| {
+        <Result<&str, ()>>::Ok(unsafe { str::from_utf8_unchecked(bytes) })
+    })(input)
+}
 
+fn length_colon_data(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    let digits = terminated(digit1, char(':'));
     length_data(map_res(digits, to_int::<usize>))(input)
 }
 
 fn to_int<T: FromStr>(bytes: &[u8]) -> Result<T, <T as FromStr>::Err> {
-    let s = String::from_utf8_lossy(bytes);
+    let s = unsafe { str::from_utf8_unchecked(bytes) };
     FromStr::from_str(&s)
 }
